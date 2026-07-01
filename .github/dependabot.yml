@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      # Fallback when the semver level can't be determined; kept conservative, same as minor.
+      default-days: 7
+      # Major releases may include breaking changes and carry the highest risk, so soak longer.
+      semver-major-days: 30
+      # Minor releases add features; a middle value that aligns with the weekly schedule.
+      semver-minor-days: 7
+      # Patches are bug/security fixes we want quickly, with a short buffer to skip
+      # broken same-day re-releases.
+      semver-patch-days: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"
