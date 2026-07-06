@@ -43,6 +43,7 @@
 (require 'cl-lib)
 (require 'rx)
 (require 'smie)
+(require 'subr-x)
 
 (defgroup ocl nil
   "Major mode for editing Octopus Configuration Language files."
