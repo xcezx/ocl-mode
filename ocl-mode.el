@@ -219,7 +219,7 @@ newline that ends the heredoc opening line."
     (back-to-indentation)
     (unless (or (looking-at-p "[]}]")
                 (ocl--in-string-or-comment-p))
-      (when-let ((indent (ocl--containing-list-indentation)))
+      (when-let* ((indent (ocl--containing-list-indentation)))
         (+ indent ocl-indent-level)))))
 
 (defun ocl-calculate-indentation ()
