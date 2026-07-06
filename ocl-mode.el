@@ -42,6 +42,8 @@
 
 (require 'cl-lib)
 (require 'rx)
+(require 'smie)
+(require 'subr-x)
 
 (defgroup ocl nil
   "Major mode for editing Octopus Configuration Language files."
@@ -149,50 +151,93 @@ newline that ends the heredoc opening line."
 
 ;;; Indentation
 
-(defun ocl--block-indentation ()
-  (let ((curline (line-number-at-pos)))
-    (save-excursion
-      (condition-case nil
-          (progn
-            (backward-up-list)
-            (unless (= curline (line-number-at-pos))
-              (current-indentation)))
-        (scan-error nil)))))
+(defconst ocl--smie-grammar
+  (smie-prec2->grammar
+   (smie-bnf->prec2
+    '((expr ("{" expr "}")
+            ("[" expr "]")
+            (expr "," expr)
+            (expr "=" expr)))
+    '((assoc ",")
+      (assoc "="))))
+  "SMIE grammar for `ocl-mode'.")
 
-(defun ocl--previous-indentation ()
+(defun ocl--smie-forward-token ()
+  "Move forward across one OCL token for SMIE."
+  (skip-chars-forward " \t\n")
+  (cond
+   ((eobp) nil)
+   ((looking-at "[][{}=,]")
+    (prog1 (match-string-no-properties 0)
+      (goto-char (match-end 0))))
+   (t
+    (condition-case nil
+        (progn
+          (forward-sexp 1)
+          "id")
+      (scan-error
+       (goto-char (min (point-max) (1+ (point))))
+       "id")))))
+
+(defun ocl--smie-backward-token ()
+  "Move backward across one OCL token for SMIE."
+  (skip-chars-backward " \t\n")
+  (cond
+   ((bobp) nil)
+   ((memq (char-before) '(?\] ?\[ ?\} ?\{ ?= ?,))
+    (backward-char)
+    (string (char-after)))
+   (t
+    (condition-case nil
+        (progn
+          (backward-sexp 1)
+          "id")
+      (scan-error
+       (goto-char (max (point-min) (1- (point))))
+       "id")))))
+
+(defun ocl--containing-list-indentation ()
+  "Return the indentation of the line that opens the current list."
   (save-excursion
-    (forward-line -1)
-    (let (finish)
-      (while (not finish)
-        (cond ((bobp) (setq finish t))
-              ((ocl--in-string-or-comment-p) (forward-line -1))
-              (t
-               (let ((line (buffer-substring-no-properties
-                            (line-beginning-position) (line-end-position))))
-                 (if (not (string-match-p "\\`\\s-*\\'" line))
-                     (setq finish t)
-                   (forward-line -1))))))
-      (current-indentation))))
+    (condition-case nil
+        (progn
+          (backward-up-list)
+          (current-indentation))
+      (scan-error nil))))
+
+(defun ocl--smie-rules (method arg)
+  "Return SMIE indentation rule for METHOD and ARG."
+  (pcase (cons method arg)
+    (`(:elem . basic) ocl-indent-level)
+    (`(:after . ,(or "{" "["))
+     `(column . ,(+ (current-indentation) ocl-indent-level)))
+    (`(:before . ,(or "}" "]"))
+     `(column . ,(or (ocl--containing-list-indentation) 0)))))
+
+(defun ocl--smie-indent-inside-list ()
+  "Indent an OCL line within braces or brackets."
+  (save-excursion
+    (back-to-indentation)
+    (unless (or (looking-at-p "[]}]")
+                (ocl--in-string-or-comment-p))
+      (when-let* ((indent (ocl--containing-list-indentation)))
+        (+ indent ocl-indent-level)))))
 
 (defun ocl-calculate-indentation ()
-  (let ((block-indentation (ocl--block-indentation)))
-    (if block-indentation
-        (if (looking-at "[]}]")
-            block-indentation
-          (+ block-indentation ocl-indent-level))
-      (ocl--previous-indentation))))
+  "Calculate indentation for the current OCL line using SMIE."
+  (save-excursion
+    (forward-line 0)
+    (skip-chars-forward " \t")
+    (or (smie-indent-calculate) 0)))
 
 (defun ocl-indent-line ()
   "Indent current line as OCL configuration."
   (interactive)
-  (let* ((curpoint (point))
-         (pos (- (point-max) curpoint)))
-    (back-to-indentation)
-    (if (ocl--in-string-or-comment-p)
-        (goto-char curpoint)
-      (indent-line-to (ocl-calculate-indentation))
-      (when (> (- (point-max) pos) (point))
-        (goto-char (- (point-max) pos))))))
+  (if (save-excursion
+        (back-to-indentation)
+        (ocl--in-string-or-comment-p))
+      nil
+    (smie-indent-line)))
 
 ;;; Navigation
 
@@ -253,7 +298,16 @@ not add any of those.
   (setq font-lock-defaults '((ocl-font-lock-keywords)))
 
   (make-local-variable 'ocl-indent-level)
+  (smie-setup ocl--smie-grammar #'ocl--smie-rules
+              :forward-token #'ocl--smie-forward-token
+              :backward-token #'ocl--smie-backward-token)
+  (setq-local smie-indent-functions
+              (cons #'ocl--smie-indent-inside-list
+                    (remove #'smie-indent-close smie-indent-functions)))
   (setq-local indent-line-function 'ocl-indent-line)
+  ;; SMIE asks Emacs to normalize comment variables during indentation.
+  ;; OCL still has no comment syntax; this only prevents an interactive prompt.
+  (setq-local comment-start "")
   ;; Default to 4 spaces per indent level, never tabs.
   (setq-local indent-tabs-mode nil)
 
