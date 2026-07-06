@@ -214,11 +214,10 @@ newline that ends the heredoc opening line."
      `(column . ,(or (ocl--containing-list-indentation) 0)))))
 
 (defun ocl--smie-indent-inside-list ()
-  "Indent a non-empty OCL line within braces or brackets."
+  "Indent an OCL line within braces or brackets."
   (save-excursion
     (back-to-indentation)
     (unless (or (looking-at-p "[]}]")
-                (looking-at-p "\\s-*$")
                 (ocl--in-string-or-comment-p))
       (when-let ((indent (ocl--containing-list-indentation)))
         (+ indent ocl-indent-level)))))

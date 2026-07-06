@@ -55,6 +55,12 @@
   (with-ocl-temp-buffer "step \"A\" {\nname = \"x\"\n\nvalue = \"y\"\n}\n"
     (should (= (ocl-test--indentation-of 4) ocl-indent-level))))
 
+(ert-deftest ocl-test-newline-after-assignment-indentation ()
+  (with-ocl-temp-buffer "step \"A\" {\n    action {\n        action_type = \"Octopus.Script\"\n    }\n}\n"
+    (search-forward "Octopus.Script\"")
+    (newline-and-indent)
+    (should (= (current-column) (* 2 ocl-indent-level)))))
+
 (ert-deftest ocl-test-no-reindentation-inside-heredoc ()
   "Heredoc bodies must be left untouched by indentation."
   (with-ocl-temp-buffer "body = <<-EOT\n    keep this indentation\nEOT\n"
