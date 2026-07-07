@@ -4,7 +4,7 @@
 
 ;; Author: xcezx
 ;; URL: https://github.com/xcezx/ocl-mode
-;; Version: 0.01
+;; Version: 0.0.1
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: languages
 
@@ -51,7 +51,7 @@
   :group 'languages)
 
 (defcustom ocl-indent-level 4
-  "The tab width to use when indenting."
+  "Number of spaces per indentation level."
   :type 'integer
   :group 'ocl)
 
