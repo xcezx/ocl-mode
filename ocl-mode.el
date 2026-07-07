@@ -263,7 +263,6 @@ newline that ends the heredoc opening line."
     (let ((orig-level (ocl--paren-level)))
       (while (and (>= (ocl--paren-level) orig-level)
                   (< (point) (point-max)))
-        (skip-chars-forward "^}")
         (forward-line +1)))))
 
 ;;; Keymap
