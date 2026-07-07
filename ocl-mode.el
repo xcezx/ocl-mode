@@ -80,8 +80,12 @@
 (defconst ocl--assignment-regexp
   (concat ocl--identifier-regexp "\\s-*=\\(?:[^>=]\\)"))
 
+;; Blocks are frequently labelled, e.g. `step "Deploy" {' or
+;; `action "a" "b" {'.  Match the block type name (group 1) followed
+;; by any number of quoted labels before the opening brace.  The `^'
+;; anchor keeps this from matching object assignments like `foo = {'.
 (defconst ocl--map-regexp
-  (concat ocl--identifier-regexp "\\s-*{"))
+  (concat "^\\s-*" ocl--identifier-regexp "\\(?:\\s-+\"[^\"]*\"\\)*\\s-*{"))
 
 (defconst ocl--constant-regexp
   (concat "\\_<" (regexp-opt '("true" "false" "null") t) "\\_>"))

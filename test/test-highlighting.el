@@ -25,6 +25,22 @@
     (forward-cursor-on "packages")
     (should (face-at-cursor-p 'font-lock-type-face))))
 
+(ert-deftest ocl-test-highlight-block-with-label ()
+  (with-ocl-temp-buffer "step \"Deploy\" {\n    name = \"x\"\n}\n"
+    (forward-cursor-on "step")
+    (should (face-at-cursor-p 'font-lock-type-face))))
+
+(ert-deftest ocl-test-highlight-block-with-multiple-labels ()
+  (with-ocl-temp-buffer "resource \"aws\" \"web\" {\n    id = 1\n}\n"
+    (forward-cursor-on "resource")
+    (should (face-at-cursor-p 'font-lock-type-face))))
+
+(ert-deftest ocl-test-object-assignment-is-not-a-block ()
+  "`foo = {' is an object assignment; the key stays a variable name."
+  (with-ocl-temp-buffer "foo = {\n    id = 1\n}\n"
+    (forward-cursor-on "foo")
+    (should (face-at-cursor-p 'font-lock-variable-name-face))))
+
 (ert-deftest ocl-test-highlight-boolean-true ()
   (with-ocl-temp-buffer "is_required = true\n"
     (forward-cursor-on "true")
