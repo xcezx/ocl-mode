@@ -223,13 +223,6 @@ newline that ends the heredoc opening line."
       (when-let* ((indent (ocl--containing-list-indentation)))
         (+ indent ocl-indent-level)))))
 
-(defun ocl-calculate-indentation ()
-  "Calculate indentation for the current OCL line using SMIE."
-  (save-excursion
-    (forward-line 0)
-    (skip-chars-forward " \t")
-    (or (smie-indent-calculate) 0)))
-
 (defun ocl-indent-line ()
   "Indent current line as OCL configuration."
   (interactive)
