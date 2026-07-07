@@ -122,8 +122,12 @@ newline that ends the heredoc opening line."
               (save-excursion
                 (goto-char start)
                 (ocl--in-string-or-comment-p)))
-    (let ((str (replace-regexp-in-string "['\"]" "" string)))
-      (put-text-property eol (1+ eol) 'ocl-here-doc-marker str)
+    (let ((str (replace-regexp-in-string "['\"]" "" string))
+          ;; `<<-' allows the terminator to be indented; plain `<<'
+          ;; requires it at column 0.  Remember which form opened this
+          ;; heredoc so the closer can match the terminator correctly.
+          (indented (save-excursion (goto-char start) (looking-at "[^<]<<-"))))
+      (put-text-property eol (1+ eol) 'ocl-here-doc-marker (cons indented str))
       (prog1 (string-to-syntax "|")
         (goto-char (+ 2 start))))))
 
@@ -131,15 +135,22 @@ newline that ends the heredoc opening line."
   "Propertize the heredoc body up to END, if point is inside one."
   (let ((ppss (syntax-ppss)))
     (when (eq t (nth 3 ppss))
-      (let ((key (get-text-property (nth 8 ppss) 'ocl-here-doc-marker))
-            (case-fold-search nil))
+      (let* ((marker (get-text-property (nth 8 ppss) 'ocl-here-doc-marker))
+             (indented (car marker))
+             (key (cdr marker))
+             (case-fold-search nil))
         (when (and key
                    (re-search-forward
-                    (concat "^\\(?:[ \t]*\\)" (regexp-quote key) "\\(\n\\)")
+                    (concat "^" (if indented "[ \t]*" "")
+                            (regexp-quote key) "\\(\n\\|\\'\\)")
                     end 'move))
           (let ((eol (match-beginning 1)))
-            (put-text-property eol (1+ eol)
-                                'syntax-table (string-to-syntax "|"))))))))
+            ;; A terminator at end-of-buffer has no trailing newline to
+            ;; carry the closing string fence; the string simply ends
+            ;; at point-max, so there is nothing to propertize.
+            (when (< eol (point-max))
+              (put-text-property eol (1+ eol)
+                                 'syntax-table (string-to-syntax "|")))))))))
 
 (defun ocl--syntax-propertize-function (start end)
   "Syntax-propertize heredocs between START and END."

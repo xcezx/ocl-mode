@@ -88,6 +88,21 @@
     (forward-cursor-on "echo hello")
     (should (face-at-cursor-p 'font-lock-string-face))))
 
+(ert-deftest ocl-test-highlight-plain-heredoc-body ()
+  "A plain `<<EOT' heredoc body is a string, closed at a column-0 tag."
+  (with-ocl-temp-buffer "body = <<EOT\necho hello\nEOT\nname = \"x\"\n"
+    (forward-cursor-on "echo hello")
+    (should (face-at-cursor-p 'font-lock-string-face))
+    ;; The heredoc closed, so the following attribute highlights normally.
+    (forward-cursor-on "name")
+    (should (face-at-cursor-p 'font-lock-variable-name-face))))
+
+(ert-deftest ocl-test-plain-heredoc-not-closed-by-indented-tag ()
+  "For plain `<<EOT', an indented line equal to the tag must not close it."
+  (with-ocl-temp-buffer "body = <<EOT\n    EOT\nreally hello\nEOT\n"
+    (forward-cursor-on "really hello")
+    (should (face-at-cursor-p 'font-lock-string-face))))
+
 (ert-deftest ocl-test-no-comment-highlighting ()
   "OCL has no comment syntax; `#' must not be treated specially."
   (with-ocl-temp-buffer "# not a comment\nname = \"x\"\n"
