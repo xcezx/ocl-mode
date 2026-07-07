@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 
-;; ERT tests for `ocl-indent-line' / `ocl-calculate-indentation'.
+;; ERT tests for `ocl-indent-line'.
 
 ;;; Code:
 

@@ -4,7 +4,7 @@
 
 ;; Author: xcezx
 ;; URL: https://github.com/xcezx/ocl-mode
-;; Version: 0.01
+;; Version: 0.0.1
 ;; Package-Requires: ((emacs "27.1"))
 ;; Keywords: languages
 
@@ -51,7 +51,7 @@
   :group 'languages)
 
 (defcustom ocl-indent-level 4
-  "The tab width to use when indenting."
+  "Number of spaces per indentation level."
   :type 'integer
   :group 'ocl)
 
@@ -80,8 +80,12 @@
 (defconst ocl--assignment-regexp
   (concat ocl--identifier-regexp "\\s-*=\\(?:[^>=]\\)"))
 
+;; Blocks are frequently labelled, e.g. `step "Deploy" {' or
+;; `action "a" "b" {'.  Match the block type name (group 1) followed
+;; by any number of quoted labels before the opening brace.  The `^'
+;; anchor keeps this from matching object assignments like `foo = {'.
 (defconst ocl--map-regexp
-  (concat ocl--identifier-regexp "\\s-*{"))
+  (concat "^\\s-*" ocl--identifier-regexp "\\(?:\\s-+\"[^\"]*\"\\)*\\s-*{"))
 
 (defconst ocl--constant-regexp
   (concat "\\_<" (regexp-opt '("true" "false" "null") t) "\\_>"))
@@ -118,8 +122,12 @@ newline that ends the heredoc opening line."
               (save-excursion
                 (goto-char start)
                 (ocl--in-string-or-comment-p)))
-    (let ((str (replace-regexp-in-string "['\"]" "" string)))
-      (put-text-property eol (1+ eol) 'ocl-here-doc-marker str)
+    (let ((str (replace-regexp-in-string "['\"]" "" string))
+          ;; `<<-' allows the terminator to be indented; plain `<<'
+          ;; requires it at column 0.  Remember which form opened this
+          ;; heredoc so the closer can match the terminator correctly.
+          (indented (save-excursion (goto-char start) (looking-at "[^<]<<-"))))
+      (put-text-property eol (1+ eol) 'ocl-here-doc-marker (cons indented str))
       (prog1 (string-to-syntax "|")
         (goto-char (+ 2 start))))))
 
@@ -127,15 +135,22 @@ newline that ends the heredoc opening line."
   "Propertize the heredoc body up to END, if point is inside one."
   (let ((ppss (syntax-ppss)))
     (when (eq t (nth 3 ppss))
-      (let ((key (get-text-property (nth 8 ppss) 'ocl-here-doc-marker))
-            (case-fold-search nil))
+      (let* ((marker (get-text-property (nth 8 ppss) 'ocl-here-doc-marker))
+             (indented (car marker))
+             (key (cdr marker))
+             (case-fold-search nil))
         (when (and key
                    (re-search-forward
-                    (concat "^\\(?:[ \t]*\\)" (regexp-quote key) "\\(\n\\)")
+                    (concat "^" (if indented "[ \t]*" "")
+                            (regexp-quote key) "\\(\n\\|\\'\\)")
                     end 'move))
           (let ((eol (match-beginning 1)))
-            (put-text-property eol (1+ eol)
-                                'syntax-table (string-to-syntax "|"))))))))
+            ;; A terminator at end-of-buffer has no trailing newline to
+            ;; carry the closing string fence; the string simply ends
+            ;; at point-max, so there is nothing to propertize.
+            (when (< eol (point-max))
+              (put-text-property eol (1+ eol)
+                                 'syntax-table (string-to-syntax "|")))))))))
 
 (defun ocl--syntax-propertize-function (start end)
   "Syntax-propertize heredocs between START and END."
@@ -223,13 +238,6 @@ newline that ends the heredoc opening line."
       (when-let* ((indent (ocl--containing-list-indentation)))
         (+ indent ocl-indent-level)))))
 
-(defun ocl-calculate-indentation ()
-  "Calculate indentation for the current OCL line using SMIE."
-  (save-excursion
-    (forward-line 0)
-    (skip-chars-forward " \t")
-    (or (smie-indent-calculate) 0)))
-
 (defun ocl-indent-line ()
   "Indent current line as OCL configuration."
   (interactive)
@@ -270,7 +278,6 @@ newline that ends the heredoc opening line."
     (let ((orig-level (ocl--paren-level)))
       (while (and (>= (ocl--paren-level) orig-level)
                   (< (point) (point-max)))
-        (skip-chars-forward "^}")
         (forward-line +1)))))
 
 ;;; Keymap

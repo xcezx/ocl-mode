@@ -25,6 +25,22 @@
     (forward-cursor-on "packages")
     (should (face-at-cursor-p 'font-lock-type-face))))
 
+(ert-deftest ocl-test-highlight-block-with-label ()
+  (with-ocl-temp-buffer "step \"Deploy\" {\n    name = \"x\"\n}\n"
+    (forward-cursor-on "step")
+    (should (face-at-cursor-p 'font-lock-type-face))))
+
+(ert-deftest ocl-test-highlight-block-with-multiple-labels ()
+  (with-ocl-temp-buffer "resource \"aws\" \"web\" {\n    id = 1\n}\n"
+    (forward-cursor-on "resource")
+    (should (face-at-cursor-p 'font-lock-type-face))))
+
+(ert-deftest ocl-test-object-assignment-is-not-a-block ()
+  "`foo = {' is an object assignment; the key stays a variable name."
+  (with-ocl-temp-buffer "foo = {\n    id = 1\n}\n"
+    (forward-cursor-on "foo")
+    (should (face-at-cursor-p 'font-lock-variable-name-face))))
+
 (ert-deftest ocl-test-highlight-boolean-true ()
   (with-ocl-temp-buffer "is_required = true\n"
     (forward-cursor-on "true")
@@ -70,6 +86,21 @@
 (ert-deftest ocl-test-highlight-heredoc-body ()
   (with-ocl-temp-buffer "body = <<-EOT\n    echo hello\nEOT\n"
     (forward-cursor-on "echo hello")
+    (should (face-at-cursor-p 'font-lock-string-face))))
+
+(ert-deftest ocl-test-highlight-plain-heredoc-body ()
+  "A plain `<<EOT' heredoc body is a string, closed at a column-0 tag."
+  (with-ocl-temp-buffer "body = <<EOT\necho hello\nEOT\nname = \"x\"\n"
+    (forward-cursor-on "echo hello")
+    (should (face-at-cursor-p 'font-lock-string-face))
+    ;; The heredoc closed, so the following attribute highlights normally.
+    (forward-cursor-on "name")
+    (should (face-at-cursor-p 'font-lock-variable-name-face))))
+
+(ert-deftest ocl-test-plain-heredoc-not-closed-by-indented-tag ()
+  "For plain `<<EOT', an indented line equal to the tag must not close it."
+  (with-ocl-temp-buffer "body = <<EOT\n    EOT\nreally hello\nEOT\n"
+    (forward-cursor-on "really hello")
     (should (face-at-cursor-p 'font-lock-string-face))))
 
 (ert-deftest ocl-test-no-comment-highlighting ()
