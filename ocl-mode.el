@@ -3,6 +3,7 @@
 ;; Copyright (C) 2026 xcezx
 
 ;; Author: xcezx
+;; Assisted-by: Claude Code:claude-opus-4-8
 ;; URL: https://github.com/xcezx/ocl-mode
 ;; Version: 0.0.1
 ;; Package-Requires: ((emacs "27.1"))
@@ -72,26 +73,32 @@
 
 ;;; Font-lock
 
-(defconst ocl--block-regexp "^\\s-*[^{]+{")
+(defconst ocl--block-regexp "^\\s-*[^{]+{"
+  "Regexp matching the opening line of an OCL block.")
 
 (defconst ocl--identifier-regexp
-  "\\_<\\(\\sw+\\(?:\\s_+\\sw+\\)*\\)\\_>")
+  "\\_<\\(\\sw+\\(?:\\s_+\\sw+\\)*\\)\\_>"
+  "Regexp matching an OCL identifier, allowing dotted keys.")
 
 (defconst ocl--assignment-regexp
-  (concat ocl--identifier-regexp "\\s-*=\\(?:[^>=]\\)"))
+  (concat ocl--identifier-regexp "\\s-*=\\(?:[^>=]\\)")
+  "Regexp matching an attribute assignment, capturing the key in group 1.")
 
 ;; Blocks are frequently labelled, e.g. `step "Deploy" {' or
 ;; `action "a" "b" {'.  Match the block type name (group 1) followed
 ;; by any number of quoted labels before the opening brace.  The `^'
 ;; anchor keeps this from matching object assignments like `foo = {'.
 (defconst ocl--map-regexp
-  (concat "^\\s-*" ocl--identifier-regexp "\\(?:\\s-+\"[^\"]*\"\\)*\\s-*{"))
+  (concat "^\\s-*" ocl--identifier-regexp "\\(?:\\s-+\"[^\"]*\"\\)*\\s-*{")
+  "Regexp matching a block header, capturing the block type in group 1.")
 
 (defconst ocl--constant-regexp
-  (concat "\\_<" (regexp-opt '("true" "false" "null") t) "\\_>"))
+  (concat "\\_<" (regexp-opt '("true" "false" "null") t) "\\_>")
+  "Regexp matching the OCL keyword constants `true', `false' and `null'.")
 
 (defconst ocl--number-regexp
-  "\\_<-?[0-9]+\\(?:\\.[0-9]+\\)?\\_>")
+  "\\_<-?[0-9]+\\(?:\\.[0-9]+\\)?\\_>"
+  "Regexp matching an OCL numeric literal.")
 
 (defconst ocl-font-lock-keywords
   `((,ocl--assignment-regexp 1 font-lock-variable-name-face)
@@ -103,16 +110,19 @@
 ;;; Syntax-ppss helpers
 
 (defsubst ocl--paren-level ()
+  "Return the current parenthesis nesting depth."
   (car (syntax-ppss)))
 
 (defsubst ocl--in-string-or-comment-p ()
+  "Return non-nil if point is inside a string or comment."
   (nth 8 (syntax-ppss)))
 
 ;;; Heredoc support via syntax-propertize
 
 (eval-and-compile
   (defconst ocl--here-doc-beg-re
-    "[^<]<<-?\\s-*\\\\?\\(\\(?:['\"][^'\"]+['\"]\\|\\sw\\|[-/~._]\\)+\\)\\(\n\\)"))
+    "[^<]<<-?\\s-*\\\\?\\(\\(?:['\"][^'\"]+['\"]\\|\\sw\\|[-/~._]\\)+\\)\\(\n\\)"
+    "Regexp matching a heredoc opening delimiter, with the tag in group 1."))
 
 (defun ocl--font-lock-open-heredoc (start string eol)
   "Determine the syntax of the heredoc starting at START.
@@ -284,8 +294,8 @@ newline that ends the heredoc opening line."
 
 (defvar ocl-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-M-a") 'ocl-beginning-of-defun)
-    (define-key map (kbd "C-M-e") 'ocl-end-of-defun)
+    (define-key map (kbd "C-M-a") #'ocl-beginning-of-defun)
+    (define-key map (kbd "C-M-e") #'ocl-end-of-defun)
     map)
   "Keymap for `ocl-mode'.")
 
